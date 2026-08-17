@@ -368,7 +368,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 				 ((unsigned long long)raid_disks * chunk_size));
 	size_t device_span = batchf * chunk_size;
 
-	if (posix_memalign((void**)&stripe_buf, 4096, raid_disks * device_span) != 0)
+	if (posix_memalign((void **)&stripe_buf, 4096, raid_disks * device_span) != 0)
 		exit(4);
 	block_index_for_slot += 2;
 	blocks += 2;
@@ -427,7 +427,8 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 
 			if (!is_ddf(layout)) {
 				/* The syndrome-order of disks starts immediately after 'Q',
-				 * but skips P */
+				 * but skips P
+				 */
 				diskD = diskQ;
 				for (i = 0 ; i < data_disks ; i++) {
 					diskD = diskD + 1;
@@ -455,39 +456,42 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 				}
 			}
 
-			qsyndrome(p, q, (uint8_t**)blocks, syndrome_disks, chunk_size);
+			qsyndrome(p, q, (uint8_t **)blocks, syndrome_disks, chunk_size);
 
 			raid6_collect(chunk_size, p, q, stripes[diskP], stripes[diskQ], results);
 			raid6_stats(disk, results, raid_disks, chunk_size);
 
-			for(j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
+			for (j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
 				int role = disk[j];
+
 				if (role >= -2) {
 					int slot = block_index_for_slot[role];
+
 					if (slot >= 0)
-						printf("Error detected at stripe %llu, page %d: possible failed disk slot %d: %d --> %s\n",
-						       stripe, j, role, slot, name[slot]);
+						printf("Error detected at stripe %llu, page %d: possible failed disk "
+						       "slot %d: %d --> %s\n", stripe, j, role, slot, name[slot]);
 					else
-						printf("Error detected at stripe %llu, page %d: failed slot %d should be zeros\n",
-						       stripe, j, role);
-				} else if(disk[j] == -65535) {
+						printf("Error detected at stripe %llu, page %d: failed slot %d "
+						       "should be zeros\n", stripe, j, role);
+				} else if (disk[j] == -65535) {
 					printf("Error detected at stripe %llu, page %d: disk slot unknown\n", stripe, j);
 				}
 			}
 
-			if(repair == AUTO_REPAIR) {
+			if (repair == AUTO_REPAIR) {
 				err = autorepair(disk, stripe, chunk_size,
 						name, raid_disks, syndrome_disks, blocks_page,
 						blocks, p, block_index_for_slot,
 						source, offsets);
-				if(err != 0) {
+				if (err != 0) {
 					unlock_all_stripes(info, sig);
 					goto exitCheck;
 				}
 			}
 
-			if(repair == MANUAL_REPAIR) {
+			if (repair == MANUAL_REPAIR) {
 				int failed_slot1 = -1, failed_slot2 = -1;
+
 				for (i = -2; i < syndrome_disks; i++) {
 					if (block_index_for_slot[i] == failed_disk1)
 						failed_slot1 = i;
@@ -499,7 +503,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 						    stripe, block_index_for_slot,
 						    name, stripes, blocks, p,
 						    source, offsets);
-				if(err == -1) {
+				if (err == -1) {
 					unlock_all_stripes(info, sig);
 					goto exitCheck;
 				}
