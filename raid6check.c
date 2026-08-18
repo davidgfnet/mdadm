@@ -366,10 +366,18 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	 */
 	unsigned long long batchf = min(length, CHECK_BATCH_BYTES /
 				 ((unsigned long long)raid_disks * chunk_size));
-	size_t device_span = batchf * chunk_size;
+	size_t device_span;
 
-	if (posix_memalign((void **)&stripe_buf, 4096, raid_disks * device_span) != 0)
-		exit(4);
+	while (1) {
+		device_span = batchf * chunk_size;
+		if (posix_memalign((void **)&stripe_buf, sysconf(_SC_PAGESIZE), raid_disks * device_span) == 0)
+			break;
+
+		if (batchf == 1)
+			exit(4);
+
+		batchf--;
+	}
 	block_index_for_slot += 2;
 	blocks += 2;
 	blocks_page += 2;
@@ -396,13 +404,21 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 				err = -1;
 				goto exitCheck;
 			}
-			ssize_t read_res = read(source[i], stripe_buf + i * device_span,
-						batch_bytes);
-			if (read_res < (ssize_t)batch_bytes) {
-				fprintf(stderr, "Failed to read complete chunk disk %d, aborting\n", i);
-				unlock_all_stripes(info, sig);
-				err = -1;
-				goto exitCheck;
+			ssize_t read_complete = 0;
+			while (read_complete < (ssize_t)batch_bytes) {
+				ssize_t read_res = read(source[i], stripe_buf + i * device_span + read_complete,
+							batch_bytes - read_complete);
+				if (read_res < 0 && errno == EINTR)
+					continue;
+
+				if (read_res <= 0) {
+					fprintf(stderr, "Failed to read complete chunk disk %d, aborting\n", i);
+					unlock_all_stripes(info, sig);
+					err = -1;
+					goto exitCheck;
+				} else {
+					read_complete += read_res;
+				}
 			}
 		}
 
